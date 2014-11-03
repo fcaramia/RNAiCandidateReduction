@@ -1,0 +1,9 @@
+library("gdata")
+miRNA = read.xls("hsa_MTI.xls")
+library(biomaRt)
+ensembl=useMart('ensembl')
+listAttributes(ensembl)
+db = getBM(c("mirbase_id","ensembl_gene_id","hgnc_symbol","entrezgene"), filters=c("chromosome_name","with_mirbase"), values=list(13,TRUE), mart=ensembl)
+
+demo2 <- cbind(demo, x[match(demo$V1,row.names(x)]))
+demo2 <- cbind(demo, x[match(demo$V1,row.names(x))])
