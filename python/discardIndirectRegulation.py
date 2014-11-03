@@ -7,7 +7,6 @@ from subprocess import Popen, call
 from os.path import  join
 
 
-
 class Interaction:
 
 	gene_a_id = ""
@@ -32,7 +31,14 @@ def readStrinActionDB(db_file,db,min_score,direction,mode,action):
 	#Skip header
 	next(db_obj)
 	for line in db_obj:
+		[A,B,mode,action,a_is_acting,score,source,source2] = line.rstrip('\n').split(',')
+		inter = Interaction(A,B,mode,action,a_is_acting,score,source)
+		if A in db :
+			db[A].append(inter)
+		else:
+			db[A] = [inter]
 
+	return db
 
 
 #Same function for transfac and phosphosite
@@ -42,8 +48,6 @@ def readRegDB (db_file, db):
 	
 	#Skip header
 	next(db_obj)
-	
-
 	for line in db_obj:
 		[REG,GENE] = line.rstrip('\n').split(',')
 		
@@ -57,8 +61,6 @@ def readRegDB (db_file, db):
 def readCandidates(candidate_file,candidates):
 	
 	candidates_obj = open(candidate_file)
-	
-	
 	#Skip header
 	next(candidates_obj)
 	
@@ -108,8 +110,5 @@ def main():
 					i+=1
 	print i		
 	
-
-
-
 if __name__ == '__main__':
 	main()
