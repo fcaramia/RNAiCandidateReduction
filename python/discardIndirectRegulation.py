@@ -6,7 +6,37 @@ import threading
 from subprocess import Popen, call
 from os.path import  join
 
-def readDB (db_file, db):
+
+
+class Interaction:
+
+	gene_a_id = ""
+	gene_b_id = ""
+	action = ""
+	source = ""
+	mode = ""
+	a_is_acting = False
+	score = 0
+	def __init__(self, gene_a_id,gene_b_id,mode,action,a_is_acting,score,source):
+        self.gene_a_id = gene_a_id
+        self.gene_b_id = gene_d_id
+        self.action = action
+        self.mode = mode
+        self.a_is_acting = a_is_acting
+        self.score = score
+        self.source = source
+
+#read String db by certain filters    
+def readStrinActionDB(db_file,db,min_score,direction,mode,action):
+	db_obj = open(db_file, 'r+')
+	#Skip header
+	next(db_obj)
+	for line in db_obj:
+
+
+
+#Same function for transfac and phosphosite
+def readRegDB (db_file, db):
 	
 	db_obj = open(db_file, 'r+')
 	
@@ -15,12 +45,12 @@ def readDB (db_file, db):
 	
 
 	for line in db_obj:
-		[TF,GENE] = line.rstrip('\n').split(',')
+		[REG,GENE] = line.rstrip('\n').split(',')
 		
-		if TF in db:
-			db[TF].append(GENE)
+		if REG in db:
+			db[REG].append(GENE)
 		else:
-			db[TF] = [GENE]
+			db[REG] = [GENE]
 
 	return db
 
@@ -44,26 +74,34 @@ def readCandidates(candidate_file,candidates):
 
 def main():
 	parser = optparse.OptionParser()
-	parser.add_option('-d', '--dataBase',type='string',dest="data_base",help="database file")
+	parser.add_option('-t', '--transFac',action='store_true',dest="trans_fac",help="use TransFac DB")
+	parser.add_option('-p', '--phosphoSite',action='store_true',dest="phospho_site",help="use Phosphosite DB")
+	parser.add_option('-s', '--string',action='store_true',dest="string_db",help="use String DB")
 	parser.add_option('-c', '--candidates',type='string',dest="candidate_file",help="candidates file")
 	(options, args) = parser.parse_args()
 
+
+	if not options.candidate_file:
+		parser.error("candidate file is needed")
 	#Read DB
-	db = {}
-	db = readDB(options.data_base,db)
+	reg_db = {}
 	
+	if options.trans_fac:
+		reg_db = readRegDB(options.trans_fac,reg_db)
+
+	if options.phospho_site:
+		reg_db = readRegDB(options.phospho_site,reg_db)
 
 	#Read Candidates
 	candidates = {}
 	candidates = readCandidates(options.candidate_file,candidates)
 
-	#print db
-	#print candidates
+	
 	i = 0
 	for c in candidates:
-		if c in db:
+		if c in reg_db:
 			#print "Found TF " + c
-			for g in db[c]:
+			for g in reg_db[c]:
 				if g in c:
 					i+=1
 	print i		
