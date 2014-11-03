@@ -73,6 +73,8 @@ def readCandidates(candidate_file,candidates):
 	return candidates
 
 def main():
+
+	gene_db_dir = "../gene_db"
 	parser = optparse.OptionParser()
 	parser.add_option('-t', '--transFac',action='store_true',dest="trans_fac",help="use TransFac DB")
 	parser.add_option('-p', '--phosphoSite',action='store_true',dest="phospho_site",help="use Phosphosite DB")
