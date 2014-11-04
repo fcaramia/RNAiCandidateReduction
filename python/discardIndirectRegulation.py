@@ -3,8 +3,11 @@ import optparse
 import string
 import sys
 import threading
+import numpy
+import math
 from subprocess import Popen, call
 from os.path import  join
+
 
 
 class Interaction:
@@ -74,7 +77,6 @@ def readStringActionDB(db_file,db,min_score,direction,mode=None,action=None):
 def readRegDB (db_file, db):
 	
 	db_obj = open(db_file, 'r+')
-	
 	#Skip header
 	next(db_obj)
 	for line in db_obj:
@@ -96,12 +98,28 @@ def readCandidates(candidate_file,candidates):
 	for line in candidates_obj:
 		[GENE,SCORE] = line.rstrip('\n').split(',')
 		
-		if GENE in candidates:
-			candidates[GENE].append(SCORE)
-		else:
-			candidates[GENE] = [SCORE]
+		candidates[GENE] = int(SCORE)
 
 	return candidates
+
+def discardCandidates(candidates,marks,reg_db,string_db, std_dev_filter):
+	scores = []
+	discarded = []
+	for m in marks:
+		for g in marks[m]:
+			if candidates[m]>candidates[g]:
+				scores.append(math.fabs(candidates[m]-candidates[g]))
+	
+	std = numpy.std(scores)
+
+	for m in marks:
+		for g in marks[m]:
+			if candidates[m]>candidates[g]:
+				if(math.fabs(candidates[m]-candidates[g])>=std_dev_filter*std):
+					if m not in discarded: 
+						discarded.append(m)
+
+	return discarded	
 
 def main():
 
@@ -113,6 +131,7 @@ def main():
 	parser.add_option('-c', '--candidates',type='string',dest="candidate_file",help="candidates file")
 	parser.add_option('-e', '--score', type='int',dest='score',help="minimum evidence score, default: 400" , default=400)
 	parser.add_option('-d', '--direction', action='store_true',dest='direction',help="evidence of direction for interaction",default=False)
+	parser.add_option('-x', '--standardDev',dest='std_dev',help="number of standard deviations to mark candidate for removal, default: 2",default=2.0, type='float')
 	
 	(options, args) = parser.parse_args()
 
@@ -127,15 +146,18 @@ def main():
 	reg_db = {}
 	marks = {}
 	if options.trans_fac:
+		print "Loading TransFac"
 		reg_db = readRegDB(gene_db_dir+"transfac_interactions.csv",reg_db)
 
 	if options.phospho_site:
+		print "Loading Phosphosite"
 		reg_db = readRegDB(gene_db_dir+"kinase_curated_db.csv",reg_db)
 
 	if options.phospho_site or options.trans_fac:
 		marks = checkRegDb(candidates,reg_db,marks)
 
 	if options.string_db:
+		print "Loading String Actions"
 		string_db = {}
 		string_db = readStringActionDB(gene_db_dir+"actions_curated.tsv",string_db,options.score,options.direction)
 		checkStringDb(candidates,string_db,marks)
@@ -143,7 +165,21 @@ def main():
 	i = 0
 	for r in marks:
 		i += len(marks[r])
-	print i
+	print i, "candidates marked"
+
+	if len(marks)>0:
+		discarded = discardCandidates(candidates,marks,reg_db,string_db,options.std_dev)
+
+	print "Discarded Genes:"
+	for g in discarded:
+		print g
+
+	i = 0	
+	print "Direct Regulators:"
+	for c in candidates :
+		if c not in discarded:
+			i += 1
+	print i 
 	
 if __name__ == '__main__':
 	main()
