@@ -94,30 +94,33 @@ def readCandidates(candidate_file,candidates):
 	candidates_obj = open(candidate_file)
 	#Skip header
 	next(candidates_obj)
-	
+	scores = []
 	for line in candidates_obj:
+
 		[GENE,SCORE] = line.rstrip('\n').split(',')
 		
-		candidates[GENE] = int(SCORE)
-
+		candidates[GENE] = float(SCORE)
+		
 	return candidates
 
-def discardCandidates(candidates,marks,reg_db,string_db, std_dev_filter):
+def discardCandidates(candidates,marks,reg_db,string_db, std_dev_filter, zscore):
 	scores = []
 	discarded = []
 	for m in marks:
 		for g in marks[m]:
 			if candidates[m]>candidates[g]:
 				scores.append(math.fabs(candidates[m]-candidates[g]))
-	
+			
+
 	std = numpy.std(scores)
 
 	for m in marks:
 		for g in marks[m]:
-			if candidates[m]>candidates[g]:
+			if candidates[m]<candidates[g]:
 				if(math.fabs(candidates[m]-candidates[g])>=std_dev_filter*std):
-					if m not in discarded: 
+					if m not in discarded and candidates[m]<=zscore: 
 						discarded.append(m)
+			
 
 	return discarded	
 
@@ -132,15 +135,39 @@ def main():
 	parser.add_option('-e', '--score', type='int',dest='score',help="minimum evidence score, default: 400" , default=400)
 	parser.add_option('-d', '--direction', action='store_true',dest='direction',help="evidence of direction for interaction",default=False)
 	parser.add_option('-x', '--standardDev',dest='std_dev',help="number of standard deviations to mark candidate for removal, default: 2",default=2.0, type='float')
-	
+	parser.add_option('-z', '--maxZScore',dest='zscore',help="max zscore of discarded gene",default=3.0, type='float')
+	parser.add_option('-o', '--outfile',dest='out',help="output file",default='out.txt', type='string')
+
 	(options, args) = parser.parse_args()
 
 	if not options.candidate_file:
 		parser.error("candidate file is needed")
 	
+	
 	#Read Candidates
 	candidates = {}
 	candidates = readCandidates(options.candidate_file,candidates)
+	
+	scores = []
+	for c in candidates:
+		scores.append(candidates[c])
+
+	sign = numpy.mean(scores)
+
+	#Validate candidates	 
+	for c in candidates:
+		if sign > 0 and candidates[c]<0:
+			parser.error("z-scores should have same sign")
+
+		if sign < 0 and candidates[c]>0:
+			parser.error("z-scores should have same sign")	
+
+
+	##Change direction of regulation if negative
+	if sign <0:
+		for c in candidates:
+			candidates[c]*=-1
+
 
 	#Read DBs
 	reg_db = {}
@@ -165,19 +192,30 @@ def main():
 	i = 0
 	for r in marks:
 		i += len(marks[r])
-	print i, "candidates marked"
+	print i, "interactions marked"
 
+	f = open(options.out, 'w+')
+	f.write("Input file: "+options.candidate_file+'\n')	
+	f.write("DB Interactions marked: "+str(i)+'\n')
 	if len(marks)>0:
-		discarded = discardCandidates(candidates,marks,reg_db,string_db,options.std_dev)
-
-	print "Discarded Genes:"
-	for g in discarded:
-		print g
-
+		discarded = discardCandidates(candidates,marks,reg_db,string_db,options.std_dev,options.zscore)
+		f.write("Discarded Genes:\n")
+		for r in discarded:
+			f.write(r+' '+str(candidates[r])+ "\n")
+		
+		f.write("\n\nDiscarded Genes detailed:\n")
+		for r in discarded:
+			f.write(r+' '+str(candidates[r])+ " regulates: \n")
+			for g in marks[r]:
+				f.write("\t"+g+" "+str(candidates[g])+'\n')
+		print "Discarded Genes: ",len(discarded)
+		
 	i = 0	
 	print "Direct Regulators:"
+	f.write("\n\nGenes not dicarded:\n")
 	for c in candidates :
 		if c not in discarded:
+			f.write(c+' '+str(candidates[c])+'\n')
 			i += 1
 	print i 
 	
